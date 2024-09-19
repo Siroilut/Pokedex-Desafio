@@ -1,14 +1,27 @@
 package br.com.Pokedex.Pokedex.Principal;
 
+import br.com.Pokedex.Pokedex.Model.AbilityWrapper;
+import br.com.Pokedex.Pokedex.Model.Dados;
+import br.com.Pokedex.Pokedex.Model.PokemonData;
 import br.com.Pokedex.Pokedex.Service.ConsumoApi;
+import com.fasterxml.jackson.databind.JsonNode;
 
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Scanner;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 public class Principal {
 
     private ConsumoApi consumo = new ConsumoApi();
     private final String URL_BASE = "https://pokeapi.co/api/v2/pokemon/";
     private Scanner leitura = new Scanner(System.in);
+
+
+
 
     public void exibeMenu() {
         String menu = """
@@ -19,50 +32,48 @@ public class Principal {
         System.out.println(menu);
         String opcao = leitura.nextLine();
 
-        String endereco = "";
+        String endereco = URL_BASE + opcao;
+        PokemonData pokemonData = consumo.obterDados(endereco);
 
-        if (opcao.toLowerCase().contains(opcao)){
-            endereco = URL_BASE + opcao;
-
-        }else {
-            System.out.println("pokemon nao encontrado");
-
+        if (pokemonData != null) {
+            System.out.println("Detalhes do Pokémon:");
+            pokemonData.getAbilities().forEach(abilityWrapper -> {
+                System.out.println("Habilidade: " + abilityWrapper.getAbility().getName());
+            });
+        } else {
+            System.out.println("Pokémon não encontrado.");
         }
-
-        String json = consumo.obterDados(endereco);
-        System.out.println(json);
-
-
-//        System.out.println("""
-//                OPÇÕES:
-//                *Yellow
-//                *Blue
-//                *Gold
-//                *Silver
-//                *Crystal
-//
-//                Digite o nome da versão:
-//                """);
 
 
         System.out.println("Gostaria de saber a localização? ");
         String localizacao = leitura.nextLine();
-        System.out.println(localizacao.toLowerCase().contains("sim"));
-        if (localizacao.toLowerCase().contains("sim"))
-            endereco =  endereco+ "/" + "encounters";
-        else if (localizacao.toLowerCase().contains("não")){
-            System.out.println("Pesquisa encerrada!");
+
+
+
+        if (localizacao.equalsIgnoreCase("sim")) {
+            String enderecoLocalizacao = endereco + "/encounters";
+            JsonNode localizacoes = consumo.obterDadosLocalizacoes(enderecoLocalizacao);
+
+
+            //pesquisa e impressão do filtro por chance de captura
+            if (localizacoes != null && localizacoes.isArray()) {
+                List<JsonNode> localizacaoFiltrada = StreamSupport.stream(localizacoes.spliterator(), false)
+                        .flatMap(n -> StreamSupport.stream(n.get("version_details").spliterator(), false))
+                        .flatMap(versionDetails -> StreamSupport.stream(versionDetails.get("encounter_details").spliterator(), false))
+                        .filter(c -> c.get("chance") !=null && c.get("chance").asInt() > 1)
+                        .limit(1)
+                        .collect(Collectors.toList());
+                if (!localizacaoFiltrada.isEmpty()){
+                    localizacaoFiltrada.forEach(System.out::println);;
+                }else {
+                    System.out.println("nada encontrado!");
+                }
+
+            } else {
+                System.out.println("Nenhuma localização encontrada.");
+            }
+        } else {
+            System.out.println("Pesquisa encerrada.");
         }
-
-        json = consumo.obterDados(endereco);
-        System.out.println(json);
-
-
-
-
-
     }
-
-
-
 }
